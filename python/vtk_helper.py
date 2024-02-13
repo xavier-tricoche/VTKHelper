@@ -19,18 +19,18 @@ def create_mapper(input):
     if isinstance(input, vtk.vtkAlgorithm):
         if isinstance(input, vtk.vtkPolyDataAlgorithm):
             mapper = vtk.vtkPolyDataMapper()
-            return plug(input, mapper)
+            return connect(input, mapper)
         elif isinstance(input, vtk.DataSetAlgorithm):
             mapper = vtk.vtkDataSetMapper()
-            return plug(input, mapper)
+            return connect(input, mapper)
         else:
             raise ValueError(f'Unrecognized algorithm type ({type(input)}) in create_mapper')
     elif isinstance(input, vtk.vtkPolyData):
         mapper = vtk.vtkPolyDataMapper()
-        return plug(input, mapper)
+        return connect(input, mapper)
     elif isinstance(input, vtk.vtkDataSet):
         mapper = vtk.vtkDataSetMapper()
-        return plug(input, mapper)
+        return connect(input, mapper)
     else:
         raise ValueError(f'Unrecognized dataset type ({type(input)}) in create_mapper')
 
