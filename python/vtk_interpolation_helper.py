@@ -7,6 +7,8 @@ import vtk_io_helper
 from random import *
 import os
 import nrrd
+from collections import deque
+from tqdm import tqdm
 
 def import_dataset(filename):
     try:
@@ -59,9 +61,7 @@ class Interpolator:
             raise ValueError(f'Position {p} is not in dataset domain')
         cellpts = vtk.vtkIdList()
         self.data.GetCellPoints(cellid, cellpts)
-        # cellpts = cellpts.get()
         f = np.zeros(self.field.GetNumberOfComponents())
-        # weights = weights.get()
         for i in range(cellpts.GetNumberOfIds()):
             id = cellpts.GetId(i)
             f += weights[i] * np.array(self.field.GetTuple(id))
@@ -92,14 +92,46 @@ class TimeInterpolator:
         self.nattributes = len(self.attributes)
 
     def update_data(self, newtimes, newfilenames):
-        self.times = newtimes
-        self.steps = []
+        self.times = deque().extend(newtimes)
+        self.steps = deque()
         for filename in newfilenames:
             data = import_dataset(filename)
             values = []
             for name in self.attributes:
                 values.append(get_attribute(data, name))
             self.steps.append(values)
+
+    def move_forward(self, times, filenames):
+        # FIFO
+        if not isinstance(times, list):
+            times = [times]
+        if not isinstance(filenames, list):
+            filenames = [filenames]
+        for t, f in zip(times, filenames):
+            self.times.popleft()
+            self.steps.popleft()
+            self.times.append(t)
+            data = import_dataset(f)
+            values = []
+            for name in self.attributes:
+                values.append(get_attribute(data, name))
+            self.steps.append(values)
+
+    def move_backward(self, times, filenames):
+        # FIFO
+        if not isinstance(times, list):
+            times = [times]
+        if not isinstance(filenames, list):
+            filenames = [filenames]
+        for t, f in zip(times, filenames):
+            self.times.pop()
+            self.steps.pop()
+            self.times.appendleft(t)
+            data = import_dataset(f)
+            values = []
+            for name in self.attributes:
+                values.append(get_attribute(data, name))
+            self.steps.appendleft(self.steps)
 
     def __call__(self, t, p):
         tpos = np.searchsorted(self.times, t)
@@ -144,23 +176,20 @@ class TimeInterpolator:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test RHS wrapper for VTK datasets')
-    parser.add_argument('-i', '--input', required=True, help='Input dataset')
-    parser.add_argument('-f', '--field', required=True, help='Field to interpolate')
-    parser.add_argument('-n', '--number', default=100, help='Number of interpolations to perform')
+    parser.add_argument('-i', '--input', type=str, required=True, help='Input dataset')
+    parser.add_argument('-f', '--field', type=str, required=True, help='Field to interpolate')
+    parser.add_argument('-n', '--number', type=int, default=100, help='Number of interpolations to perform')
     args = parser.parse_args()
 
     data = import_dataset(args.input)
-    print(data)
     field = get_attribute(data, args.field)
-    print(field)
     intp = Interpolator(data, field)
-
 
     xmin, xmax, ymin, ymax, zmin, zmax = data.GetBounds()
     pmin = np.array([xmin, ymin, zmin])
     pmax = np.array([xmax, ymax, zmax])
 
-    for i in range(args.number):
+    for i in tqdm(range(args.number)):
         x = random()
         y = random()
         z = random()
@@ -168,7 +197,7 @@ if __name__ == '__main__':
         p = (np.ones(3)-p)*pmin + p*pmax
         try:
             value = intp(0, p)
-            print(f'value at {p} is {value}')
+            # print(f'value at {p} is {value}')
         except ValueError:
             print(f'position {p} lies outside domain boundary')
 
