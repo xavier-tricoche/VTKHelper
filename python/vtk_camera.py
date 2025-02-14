@@ -24,7 +24,7 @@ def save_camera(camera=None, renderer=None, filename='camera.json'):
     cam = { 'position': pos, 'focal_point': foc, 'view_up': up, 'clipping_range': clip, 'angle': angle}
 
     if os.path.exists(filename):
-        t = time.asctime(time.gmtime(time.time())).replace(' ', '_')
+        t = time.asctime(time.gmtime(time.time())).replace(' ', '_').replace(':', '-')
         basename, ext = os.path.splitext(filename)
         if not ext:
             ext = '.json'
